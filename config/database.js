@@ -20,7 +20,7 @@ const pool = new Pool({
 });
 
 // Enhanced connection test with retry logic
-const testConnection = async (retries = 3, delay = 5000) => {
+const testConnection = async (retries = 5, delay = 10000) => {
   for (let i = 0; i < retries; i++) {
     try {
       const client = await pool.connect();
