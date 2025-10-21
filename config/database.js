@@ -11,8 +11,10 @@ const pool = new Pool({
   password: process.env.DB_PASSWORD,
   port: process.env.DB_PORT,
   ssl: {
-    rejectUnauthorized: false, // Required for Neon SSL connections
+    require: true,
+    rejectUnauthorized: false
   },
+  connectionTimeoutMillis: 10000, // 10 seconds
 });
 
 // Test database connection on startup
