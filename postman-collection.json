@@ -1,0 +1,912 @@
+{
+  "info": {
+    "name": "B-Trust Microbanking System API",
+    "description": "Complete API collection for B-Trust Microbanking System with all 37 endpoints",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_postman_id": "btrust-api-collection",
+    "version": "1.0.0"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:5000",
+      "type": "string"
+    },
+    {
+      "key": "admin_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "agent_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "manager_token",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "0. Health Check",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/health",
+              "host": ["{{base_url}}"],
+              "path": ["api", "health"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "1. Authentication",
+      "item": [
+        {
+          "name": "Login - Admin",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.collectionVariables.set('admin_token', jsonData.token);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"Admin@123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "Login - Invalid Credentials",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"wrongpassword\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "login"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Public Endpoints",
+      "item": [
+        {
+          "name": "Get Saving Plans",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/public/saving-plans",
+              "host": ["{{base_url}}"],
+              "path": ["api", "public", "saving-plans"]
+            }
+          }
+        },
+        {
+          "name": "Get Branches",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/public/branches",
+              "host": ["{{base_url}}"],
+              "path": ["api", "public", "branches"]
+            }
+          }
+        },
+        {
+          "name": "Get FD Plans",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/public/fd-plans",
+              "host": ["{{base_url}}"],
+              "path": ["api", "public", "fd-plans"]
+            }
+          }
+        },
+        {
+          "name": "Get Bank Info",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/public/about",
+              "host": ["{{base_url}}"],
+              "path": ["api", "public", "about"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Agent - Customers",
+      "item": [
+        {
+          "name": "Get All Customers",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{agent_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/agent/customers",
+              "host": ["{{base_url}}"],
+              "path": ["api", "agent", "customers"]
+            }
+          }
+        },
+        {
+          "name": "Register Customer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{agent_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"first_name\": \"John\",\n  \"last_name\": \"Doe\",\n  \"nic\": \"123456789V\",\n  \"gender\": \"Male\",\n  \"date_of_birth\": \"1990-01-15\",\n  \"contact_no_1\": \"0771234567\",\n  \"contact_no_2\": \"0112345678\",\n  \"address\": \"123 Main St, Colombo\",\n  \"email\": \"john.doe@example.com\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/agent/customers/register",
+              "host": ["{{base_url}}"],
+              "path": ["api", "agent", "customers", "register"]
+            }
+          }
+        },
+        {
+          "name": "Get Customer by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{agent_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/agent/customers/1",
+              "host": ["{{base_url}}"],
+              "path": ["api", "agent", "customers", "1"]
+            }
+          }
+        },
+        {
+          "name": "Update Customer",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{agent_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"contact_no_1\": \"0779999999\",\n  \"email\": \"john.updated@example.com\",\n  \"address\": \"456 New Address, Colombo\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/agent/customers/1",
+              "host": ["{{base_url}}"],
+              "path": ["api", "agent", "customers", "1"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Agent - Accounts",
+      "item": [
+        {
+          "name": "Create Account - Single",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{agent_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customer_id\": 1,\n  \"branch_id\": 1,\n  \"saving_plan_id\": 1,\n  \"initial_deposit\": 5000\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/agent/accounts/create",
+              "host": ["{{base_url}}"],
+              "path": ["api", "agent", "accounts", "create"]
+            }
+          }
+        },
+        {
+          "name": "Create Account - Joint",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{agent_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customer_id\": 1,\n  \"joint_holders\": [2],\n  \"branch_id\": 1,\n  \"saving_plan_id\": 1,\n  \"initial_deposit\": 10000\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/agent/accounts/create",
+              "host": ["{{base_url}}"],
+              "path": ["api", "agent", "accounts", "create"]
+            }
+          }
+        },
+        {
+          "name": "Get Active Accounts",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{agent_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/agent/accounts",
+              "host": ["{{base_url}}"],
+              "path": ["api", "agent", "accounts"]
+            }
+          }
+        },
+        {
+          "name": "Search Accounts",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{agent_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/agent/accounts/search/John",
+              "host": ["{{base_url}}"],
+              "path": ["api", "agent", "accounts", "search", "John"]
+            }
+          }
+        },
+        {
+          "name": "Change Account Plan",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{agent_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"account_id\": 1,\n  \"new_saving_plan_id\": 2,\n  \"reason\": \"Customer requested plan upgrade\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/agent/accounts/change-plan",
+              "host": ["{{base_url}}"],
+              "path": ["api", "agent", "accounts", "change-plan"]
+            }
+          }
+        },
+        {
+          "name": "Deactivate Account",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{agent_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"account_id\": 1,\n  \"reason\": \"Customer closing account\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/agent/accounts/deactivate",
+              "host": ["{{base_url}}"],
+              "path": ["api", "agent", "accounts", "deactivate"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Agent - Transactions",
+      "item": [
+        {
+          "name": "Process Deposit",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{agent_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"account_id\": 1,\n  \"transaction_type\": \"Deposit\",\n  \"amount\": 5000,\n  \"description\": \"Cash deposit\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/agent/transactions/process",
+              "host": ["{{base_url}}"],
+              "path": ["api", "agent", "transactions", "process"]
+            }
+          }
+        },
+        {
+          "name": "Process Withdrawal",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{agent_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"account_id\": 1,\n  \"transaction_type\": \"Withdrawal\",\n  \"amount\": 2000,\n  \"description\": \"Cash withdrawal\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/agent/transactions/process",
+              "host": ["{{base_url}}"],
+              "path": ["api", "agent", "transactions", "process"]
+            }
+          }
+        },
+        {
+          "name": "Get Recent Transactions",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{agent_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/agent/transactions/recent",
+              "host": ["{{base_url}}"],
+              "path": ["api", "agent", "transactions", "recent"]
+            }
+          }
+        },
+        {
+          "name": "Get Agent Performance",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{agent_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/agent/performance",
+              "host": ["{{base_url}}"],
+              "path": ["api", "agent", "performance"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Agent - Fixed Deposits",
+      "item": [
+        {
+          "name": "Create Fixed Deposit",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{agent_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+                "raw": "{\n  \"customer_id\": 1,\n  \"account_id\": 1,\n  \"fd_plan_id\": 1,\n  \"principal_amount\": 50000,\n  \"auto_renewal_status\": \"False\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/agent/fixed-deposits/create",
+              "host": ["{{base_url}}"],
+              "path": ["api", "agent", "fixed-deposits", "create"]
+            }
+          }
+        },
+        {
+          "name": "Search Fixed Deposits",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{agent_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/agent/fixed-deposits/search?query=123456789V",
+              "host": ["{{base_url}}"],
+              "path": ["api", "agent", "fixed-deposits", "search"],
+              "query": [
+                {
+                  "key": "query",
+                  "value": "123456789V"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Deactivate Fixed Deposit",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{agent_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fd_id\": 1\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/agent/fixed-deposits/deactivate",
+              "host": ["{{base_url}}"],
+              "path": ["api", "agent", "fixed-deposits", "deactivate"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "7. Admin - Users",
+      "item": [
+        {
+          "name": "Register Employee",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"Agent\",\n  \"username\": \"agent001\",\n  \"password\": \"Agent@123\",\n  \"first_name\": \"Jane\",\n  \"last_name\": \"Smith\",\n  \"nic\": \"987654321V\",\n  \"gender\": \"Female\",\n  \"date_of_birth\": \"1995-05-20\",\n  \"branch_id\": 1,\n  \"contact_no_1\": \"0771111111\",\n  \"address\": \"789 Employee St, Colombo\",\n  \"email\": \"jane.smith@btrust.lk\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/admin/register",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "register"]
+            }
+          }
+        },
+        {
+          "name": "Get All Users",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/admin/users",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "users"]
+            }
+          }
+        },
+        {
+          "name": "Delete User",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/admin/users/5",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "users", "5"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "8. Admin - Branches",
+      "item": [
+        {
+          "name": "Get All Branches",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/admin/branches",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "branches"]
+            }
+          }
+        },
+        {
+          "name": "Create Branch",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Galle Branch\",\n  \"contact_no_1\": \"0912222222\",\n  \"address\": \"45 Galle Road, Galle\",\n  \"email\": \"galle@btrust.lk\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/admin/branches",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "branches"]
+            }
+          }
+        },
+        {
+          "name": "Delete Branch",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/admin/branches/5",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "branches", "5"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "9. Admin - Reports",
+      "item": [
+        {
+          "name": "Refresh Views",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/admin/refresh-views",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "refresh-views"]
+            }
+          }
+        },
+        {
+          "name": "Agent Transactions Report",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/admin/reports/agent-transactions?startDate=2024-01-01&endDate=2024-12-31",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "reports", "agent-transactions"],
+              "query": [
+                {
+                  "key": "startDate",
+                  "value": "2024-01-01"
+                },
+                {
+                  "key": "endDate",
+                  "value": "2024-12-31"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Account Summaries Report",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/admin/reports/account-summaries?startDate=2024-01-01&endDate=2024-12-31",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "reports", "account-summaries"],
+              "query": [
+                {
+                  "key": "startDate",
+                  "value": "2024-01-01"
+                },
+                {
+                  "key": "endDate",
+                  "value": "2024-12-31"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Active FDs Report",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/admin/reports/active-fds",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "reports", "active-fds"]
+            }
+          }
+        },
+        {
+          "name": "Interest Summary Report",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/admin/reports/interest-summary?month=10&year=2024",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "reports", "interest-summary"],
+              "query": [
+                {
+                  "key": "month",
+                  "value": "10"
+                },
+                {
+                  "key": "year",
+                  "value": "2024"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "10. Manager - Operations",
+      "item": [
+        {
+          "name": "Search Customers",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{manager_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/manager/customers/search?query=John",
+              "host": ["{{base_url}}"],
+              "path": ["api", "manager", "customers", "search"],
+              "query": [
+                {
+                  "key": "query",
+                  "value": "John"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Team Agents",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{manager_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/manager/team/agents",
+              "host": ["{{base_url}}"],
+              "path": ["api", "manager", "team", "agents"]
+            }
+          }
+        },
+        {
+          "name": "Get Agent Transactions",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{manager_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/manager/team/agents/2/transactions",
+              "host": ["{{base_url}}"],
+              "path": ["api", "manager", "team", "agents", "2", "transactions"]
+            }
+          }
+        },
+        {
+          "name": "Get Branch Transactions",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{manager_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/manager/transactions?start=2024-01-01&end=2024-12-31",
+              "host": ["{{base_url}}"],
+              "path": ["api", "manager", "transactions"],
+              "query": [
+                {
+                  "key": "start",
+                  "value": "2024-01-01"
+                },
+                {
+                  "key": "end",
+                  "value": "2024-12-31"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Branch Accounts",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{manager_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/manager/accounts",
+              "host": ["{{base_url}}"],
+              "path": ["api", "manager", "accounts"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
