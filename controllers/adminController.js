@@ -40,40 +40,12 @@ exports.registerEmployee = async (req, res) => {
     });
   }
 
-  // Age validation (18+)
-  try {
-    const dob = new Date(date_of_birth);
-    const today = new Date();
-    let age = today.getFullYear() - dob.getFullYear();
-    const m = today.getMonth() - dob.getMonth();
-    if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age--;
-    if (age < 18) {
-      return res.status(400).json({
-        status: 'error',
-        message: 'Employee must be at least 18 years old'
-      });
-    }
-  } catch (e) {
-    return res.status(400).json({
-      status: 'error',
-      message: 'Invalid date_of_birth'
-    });
-  }
+  // Note: 18+ age restriction is enforced by DB trigger (trg_employee_min_age)
 
   const client = await pool.connect();
 
   try {
     await client.query('BEGIN');
-
-    // Check if username exists
-    const userResult = await client.query('SELECT * FROM employee WHERE username = $1', [username]);
-    if (userResult.rows.length > 0) {
-      await client.query('ROLLBACK');
-      return res.status(400).json({
-        status: 'error',
-        message: 'Username already exists'
-      });
-    }
 
     // Create contact record
     const contactResult = await client.query(
@@ -107,6 +79,13 @@ exports.registerEmployee = async (req, res) => {
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('Database error:', error);
+    // Handle unique violation on username (PostgreSQL code 23505)
+    if (error && error.code === '23505' && String(error.detail || '').includes('(username)')) {
+      return res.status(409).json({
+        status: 'error',
+        message: 'Username already exists'
+      });
+    }
     res.status(500).json({
       status: 'error',
       message: 'Database error: ' + error.message
@@ -149,16 +128,14 @@ exports.getUsers = async (req, res) => {
 exports.deleteUser = async (req, res) => {
   const { id } = req.params;
   const client = await pool.connect();
-  
+
   try {
-    const result = await client.query('DELETE FROM employee WHERE employee_id = $1', [id]);
-    
     // Prevent self-deactivation via DELETE
     if (req.user && parseInt(id, 10) === parseInt(req.user.id, 10)) {
       return res.status(400).json({
         status: 'error',
         message: 'You cannot deactivate your own account.'
-        });
+      });
     }
 
     // Ensure user exists
@@ -167,20 +144,10 @@ exports.deleteUser = async (req, res) => {
       return res.status(404).json({ status: 'error', message: 'User not found' });
     }
 
-    // Soft delete: set status to Inactive
-    const updateRes = await client.query(
-      'UPDATE employee SET employee_status = $1 WHERE employee_id = $2 AND employee_status <> $1',
-      ['Inactive', id]
-    );
+    // Use DB procedure to deactivate (prevents self-deactivation and validates existence)
+    await client.query('CALL proc_deactivate_employee($1, $2)', [id, req.user?.id]);
 
-    if (updateRes.rowCount === 0) {
-      return res.json({ status: 'success', message: 'User is already inactive' });
-    }
-    
-    res.json({
-      status: 'success',
-      message: 'User deactivated successfully'
-    });
+    res.json({ status: 'success', message: 'User deactivated successfully' });
   } catch (error) {
     console.error('Database error:', error);
     res.status(500).json({ status: 'error', message: 'Database error' });
@@ -203,26 +170,11 @@ exports.updateUserStatus = async (req, res) => {
     if (!status || !['Active', 'Inactive'].includes(status)) {
       return res.status(400).json({ status: 'error', message: 'Invalid status. Use Active or Inactive.' });
     }
-
-    // Prevent self-deactivation
-    if (status === 'Inactive' && req.user && parseInt(id, 10) === parseInt(req.user.id, 10)) {
-      return res.status(400).json({ status: 'error', message: 'You cannot deactivate your own account.' });
-    }
-
-    // Ensure user exists
-    const userRes = await client.query('SELECT employee_id, employee_status FROM employee WHERE employee_id = $1', [id]);
-    if (userRes.rowCount === 0) {
-      return res.status(404).json({ status: 'error', message: 'User not found' });
-    }
-
-    // Update status
-    const updateRes = await client.query(
-      'UPDATE employee SET employee_status = $1 WHERE employee_id = $2',
-      [status, id]
-    );
-
-    if (updateRes.rowCount === 0) {
-      return res.status(500).json({ status: 'error', message: 'Failed to update status' });
+    // Delegate to DB procedures which enforce self-deactivation guard and existence checks
+    if (status === 'Inactive') {
+      await client.query('CALL proc_deactivate_employee($1, $2)', [id, req.user?.id]);
+    } else {
+      await client.query('CALL proc_activate_employee($1)', [id]);
     }
 
     res.json({ status: 'success', message: `User ${status === 'Active' ? 'activated' : 'deactivated'} successfully` });

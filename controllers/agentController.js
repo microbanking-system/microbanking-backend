@@ -912,25 +912,13 @@ exports.createFixedDeposit = async (req, res) => {
 
     const fdPlan = planResult.rows[0];
     const openDate = new Date();
-    const maturityDate = new Date(openDate);
-    
-    switch (fdPlan.fd_options) {
-      case '6 months':
-        maturityDate.setMonth(openDate.getMonth() + 6);
-        break;
-      case '1 year':
-        maturityDate.setFullYear(openDate.getFullYear() + 1);
-        break;
-      case '3 years':
-        maturityDate.setFullYear(openDate.getFullYear() + 3);
-        break;
-    }
 
+    // Let DB trigger fd_autocalc_maturity_date compute maturity_date based on plan
     const fdResult = await client.query(
-      `INSERT INTO fixeddeposit (fd_balance, auto_renewal_status, fd_status, open_date, maturity_date, fd_plan_id)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       RETURNING fd_id`,
-      [principal_amount, autoRenewalStr, 'Active', openDate, maturityDate, fd_plan_id]
+      `INSERT INTO fixeddeposit (fd_balance, auto_renewal_status, fd_status, open_date, fd_plan_id)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING fd_id, maturity_date`,
+      [principal_amount, autoRenewalStr, 'Active', openDate, fd_plan_id]
     );
 
     const fdId = fdResult.rows[0].fd_id;
@@ -945,12 +933,12 @@ exports.createFixedDeposit = async (req, res) => {
     const updatedAccount = await client.query('SELECT balance FROM account WHERE account_id = $1', [account_id]);
 
     await client.query('COMMIT');
-    
+
     res.status(201).json({
       status: 'success',
       message: 'Fixed Deposit created successfully',
       fd_id: fdId,
-      maturity_date: maturityDate.toISOString().split('T')[0],
+      maturity_date: new Date(fdResult.rows[0].maturity_date).toISOString().split('T')[0],
       new_savings_balance: parseFloat(updatedAccount.rows[0].balance)
     });
   } catch (error) {
@@ -1260,32 +1248,6 @@ exports.changeAccountPlan = async (req, res) => {
     await client.query('BEGIN');
 
     await client.query("SELECT set_config('app.actor_employee_id', $1, true)", [req.user.id.toString()]);
-
-    // Fetch current and target plan types to validate Teen -> Adult NIC requirement
-    const planInfoCurrent = await client.query(
-      `SELECT sp.plan_type
-       FROM account a
-       JOIN savingplan sp ON sp.saving_plan_id = a.saving_plan_id
-       WHERE a.account_id = $1`,
-      [Number(account_id)]
-    );
-    const planInfoTarget = await client.query(
-      'SELECT plan_type FROM savingplan WHERE saving_plan_id = $1',
-      [Number(new_saving_plan_id)]
-    );
-    if (planInfoCurrent.rows.length && planInfoTarget.rows.length) {
-      const oldType = planInfoCurrent.rows[0].plan_type;
-      const newType = planInfoTarget.rows[0].plan_type;
-      if (oldType === 'Teen' && newType === 'Adult') {
-        if (!new_nic || !/^([0-9]{12}|[0-9]{9}V)$/.test(String(new_nic).trim())) {
-          await client.query('ROLLBACK');
-          return res.status(400).json({
-            status: 'error',
-            message: 'Valid NIC is required when upgrading Teen plan to Adult (use 12 digits or 9 digits followed by V)'
-          });
-        }
-      }
-    }
 
     await client.query('SELECT change_account_saving_plan($1, $2, $3, $4, $5)', [
       Number(account_id),

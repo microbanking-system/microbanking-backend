@@ -25,7 +25,7 @@ const processDailyFDInterest = async () => {
 
     // Calculate interest due for all FDs
     const interestCalculations = await client.query(
-      `SELECT * FROM calculate_fd_interest_due($1::DATE)`,
+      `SELECT * FROM calculate_fd_interest_due($1::DATE) WHERE interest_amount > 0`,
       [processDate]
     );
 
@@ -34,36 +34,34 @@ const processDailyFDInterest = async () => {
 
     // Process each FD that has interest due
     for (const calc of interestCalculations.rows) {
-      if (calc.interest_amount > 0) {
-        try {
-          // Create transaction to credit interest
-          const systemActorId = parseInt(process.env.SYSTEM_ACTOR_EMPLOYEE_ID || '1', 10);
-          await client.query(
-            `SELECT create_transaction_with_validation($1, $2, $3, $4, $5)`,
-            ['Interest', calc.interest_amount, `Monthly FD Interest - ${calc.interest_rate}% Plan`, calc.linked_account_id, systemActorId]
-          );
-          
-          // Record the interest calculation
-          await client.query(
-            `INSERT INTO fd_interest_calculations 
-             (fd_id, calculation_date, interest_amount, days_in_period, credited_to_account_id, status, credited_at)
-             VALUES ($1, $2, $3, $4, $5, 'credited', $6)`,
-            [calc.fd_id, processDate, calc.interest_amount, calc.days_in_period, calc.linked_account_id, today]
-          );
-          
-          creditedCount++;
-          totalInterest += parseFloat(calc.interest_amount);
-          console.log(`💰 Credited LKR ${calc.interest_amount} interest for FD ${calc.fd_id} to account ${calc.linked_account_id}`);
-        } catch (error) {
-          console.error(`❌ Failed to process interest for FD ${calc.fd_id}:`, error);
-          // Record failed calculation
-          await client.query(
-            `INSERT INTO fd_interest_calculations 
-             (fd_id, calculation_date, interest_amount, days_in_period, credited_to_account_id, status)
-             VALUES ($1, $2, $3, $4, $5, 'failed')`,
-            [calc.fd_id, processDate, calc.interest_amount, calc.days_in_period, calc.linked_account_id]
-          );
-        }
+      try {
+        // Create transaction to credit interest
+        const systemActorId = parseInt(process.env.SYSTEM_ACTOR_EMPLOYEE_ID || '1', 10);
+        await client.query(
+          `SELECT create_transaction_with_validation($1, $2, $3, $4, $5)`,
+          ['Interest', calc.interest_amount, `Monthly FD Interest - ${calc.interest_rate}% Plan`, calc.linked_account_id, systemActorId]
+        );
+        
+        // Record the interest calculation
+        await client.query(
+          `INSERT INTO fd_interest_calculations 
+           (fd_id, calculation_date, interest_amount, days_in_period, credited_to_account_id, status, credited_at)
+           VALUES ($1, $2, $3, $4, $5, 'credited', $6)`,
+          [calc.fd_id, processDate, calc.interest_amount, calc.days_in_period, calc.linked_account_id, today]
+        );
+        
+        creditedCount++;
+        totalInterest += parseFloat(calc.interest_amount);
+        console.log(`💰 Credited LKR ${calc.interest_amount} interest for FD ${calc.fd_id} to account ${calc.linked_account_id}`);
+      } catch (error) {
+        console.error(`❌ Failed to process interest for FD ${calc.fd_id}:`, error);
+        // Record failed calculation
+        await client.query(
+          `INSERT INTO fd_interest_calculations 
+           (fd_id, calculation_date, interest_amount, days_in_period, credited_to_account_id, status)
+           VALUES ($1, $2, $3, $4, $5, 'failed')`,
+          [calc.fd_id, processDate, calc.interest_amount, calc.days_in_period, calc.linked_account_id]
+        );
       }
     }
 
@@ -114,7 +112,7 @@ const processDailySavingsInterest = async () => {
 
     // Calculate interest due for all savings accounts
     const interestCalculations = await client.query(
-      `SELECT * FROM calculate_savings_interest_due($1::DATE)`,
+      `SELECT * FROM calculate_savings_interest_due($1::DATE) WHERE interest_amount > 0`,
       [processDate]
     );
 
@@ -123,36 +121,34 @@ const processDailySavingsInterest = async () => {
 
     // Process each account that has interest due
     for (const calc of interestCalculations.rows) {
-      if (calc.interest_amount > 0) {
-        try {
-          // Create transaction to credit interest
-          const systemActorId = parseInt(process.env.SYSTEM_ACTOR_EMPLOYEE_ID || '1', 10);
-          await client.query(
-            `SELECT create_transaction_with_validation($1, $2, $3, $4, $5)`,
-            ['Interest', calc.interest_amount, `Monthly Savings Interest - ${calc.plan_type} Plan`, calc.account_id, systemActorId]
-          );
-          
-          // Record the interest calculation
-          await client.query(
-            `INSERT INTO savings_interest_calculations 
-             (account_id, calculation_date, interest_amount, interest_rate, plan_type, status, credited_at)
-             VALUES ($1, $2, $3, $4, $5, 'credited', $6)`,
-            [calc.account_id, processDate, calc.interest_amount, calc.interest_rate, calc.plan_type, today]
-          );
-          
-          creditedCount++;
-          totalInterest += parseFloat(calc.interest_amount);
-          console.log(`💰 Credited LKR ${calc.interest_amount} interest for account ${calc.account_id} (${calc.plan_type})`);
-        } catch (error) {
-          console.error(`❌ Failed to process interest for account ${calc.account_id}:`, error);
-          // Record failed calculation
-          await client.query(
-            `INSERT INTO savings_interest_calculations 
-             (account_id, calculation_date, interest_amount, interest_rate, plan_type, status)
-             VALUES ($1, $2, $3, $4, $5, 'failed')`,
-            [calc.account_id, processDate, calc.interest_amount, calc.interest_rate, calc.plan_type]
-          );
-        }
+      try {
+        // Create transaction to credit interest
+        const systemActorId = parseInt(process.env.SYSTEM_ACTOR_EMPLOYEE_ID || '1', 10);
+        await client.query(
+          `SELECT create_transaction_with_validation($1, $2, $3, $4, $5)`,
+          ['Interest', calc.interest_amount, `Monthly Savings Interest - ${calc.plan_type} Plan`, calc.account_id, systemActorId]
+        );
+        
+        // Record the interest calculation
+        await client.query(
+          `INSERT INTO savings_interest_calculations 
+           (account_id, calculation_date, interest_amount, interest_rate, plan_type, status, credited_at)
+           VALUES ($1, $2, $3, $4, $5, 'credited', $6)`,
+          [calc.account_id, processDate, calc.interest_amount, calc.interest_rate, calc.plan_type, today]
+        );
+        
+        creditedCount++;
+        totalInterest += parseFloat(calc.interest_amount);
+        console.log(`💰 Credited LKR ${calc.interest_amount} interest for account ${calc.account_id} (${calc.plan_type})`);
+      } catch (error) {
+        console.error(`❌ Failed to process interest for account ${calc.account_id}:`, error);
+        // Record failed calculation
+        await client.query(
+          `INSERT INTO savings_interest_calculations 
+           (account_id, calculation_date, interest_amount, interest_rate, plan_type, status)
+           VALUES ($1, $2, $3, $4, $5, 'failed')`,
+          [calc.account_id, processDate, calc.interest_amount, calc.interest_rate, calc.plan_type]
+        );
       }
     }
 
