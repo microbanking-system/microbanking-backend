@@ -362,28 +362,7 @@ exports.deleteBranch = async (req, res) => {
   }
 };
 
-/**
- * Refresh materialized views
- * POST /api/admin/refresh-views
- */
-exports.refreshViews = async (req, res) => {
-  const client = await pool.connect();
-  try {
-    await client.query('SELECT refresh_materialized_views()');
-    res.json({
-      status: 'success',
-      message: 'Materialized views refreshed successfully'
-    });
-  } catch (error) {
-    console.error('Database error:', error);
-    res.status(500).json({
-      status: 'error',
-      message: 'Database error'
-    });
-  } finally {
-    client.release();
-  }
-};
+// Removed: refreshViews endpoint (materialized views were removed)
 
 /**
  * Get agent transactions report
@@ -404,14 +383,14 @@ exports.getAgentTransactionsReport = async (req, res) => {
     const result = await client.query(`
       SELECT 
         e.employee_id,
-        e.first_name || ' ' || e.last_name as employee_name,
-        COUNT(t.transaction_id) as total_transactions,
-        COALESCE(SUM(CASE WHEN t.transaction_type = 'Deposit' THEN t.amount ELSE 0 END), 0) as total_deposits,
-        COALESCE(SUM(CASE WHEN t.transaction_type = 'Withdrawal' THEN t.amount ELSE 0 END), 0) as total_withdrawals,
-        COALESCE(SUM(CASE WHEN t.transaction_type = 'Deposit' THEN t.amount ELSE -t.amount END), 0) as net_value
+        e.first_name || ' ' || e.last_name AS employee_name,
+        COUNT(v.transaction_id) AS total_transactions,
+        COALESCE(SUM(v.deposit_amount), 0) AS total_deposits,
+        COALESCE(SUM(v.withdrawal_amount), 0) AS total_withdrawals,
+        COALESCE(SUM(v.net_value), 0) AS net_value
       FROM employee e
-      LEFT JOIN transaction t ON e.employee_id = t.employee_id
-        AND DATE(t.time) BETWEEN $1 AND $2
+      LEFT JOIN v_transaction_enriched v ON e.employee_id = v.employee_id
+        AND DATE(v.time) BETWEEN $1 AND $2
       WHERE e.role = 'Agent'
       GROUP BY e.employee_id, e.first_name, e.last_name
       ORDER BY total_transactions DESC
@@ -451,18 +430,17 @@ exports.getAccountSummariesReport = async (req, res) => {
     const result = await client.query(`
       SELECT 
         a.account_id,
-        STRING_AGG(DISTINCT c.first_name || ' ' || c.last_name, ', ') as customer_names,
-        COUNT(t.transaction_id) as transaction_count,
-        COALESCE(SUM(CASE WHEN t.transaction_type = 'Deposit' THEN t.amount ELSE 0 END), 0) as total_deposits,
-        COALESCE(SUM(CASE WHEN t.transaction_type = 'Withdrawal' THEN t.amount ELSE 0 END), 0) as total_withdrawals,
-        a.balance as current_balance
+        ac.customer_names,
+        COUNT(v.transaction_id) AS transaction_count,
+        COALESCE(SUM(v.deposit_amount), 0) AS total_deposits,
+        COALESCE(SUM(v.withdrawal_amount), 0) AS total_withdrawals,
+        a.balance AS current_balance
       FROM account a
-      JOIN takes tk ON a.account_id = tk.account_id
-      JOIN customer c ON tk.customer_id = c.customer_id
-      LEFT JOIN transaction t ON a.account_id = t.account_id
-        AND DATE(t.time) BETWEEN $1 AND $2
+      JOIN v_account_customers ac ON ac.account_id = a.account_id
+      LEFT JOIN v_transaction_enriched v ON a.account_id = v.account_id
+        AND DATE(v.time) BETWEEN $1 AND $2
       WHERE a.account_status = 'Active'
-      GROUP BY a.account_id, a.balance
+      GROUP BY a.account_id, a.balance, ac.customer_names
       ORDER BY a.account_id
     `, [startDate, endDate]);
 
@@ -489,31 +467,9 @@ exports.getActiveFDsReport = async (req, res) => {
   const client = await pool.connect();
   try {
     const result = await client.query(`
-      WITH last_credited AS (
-        SELECT fd_id, MAX(calculation_date) AS last_date
-        FROM fd_interest_calculations
-        WHERE status = 'credited'
-        GROUP BY fd_id
-      )
-      SELECT 
-        fd.fd_id,
-        a.account_id,
-        STRING_AGG(DISTINCT c.first_name || ' ' || c.last_name, ', ') as customer_names,
-        fd.fd_balance,
-        fp.interest as interest_rate,
-        fd.open_date,
-        fd.maturity_date,
-        fd.auto_renewal_status,
-        (COALESCE(l.last_date, fd.open_date) + INTERVAL '30 days')::date AS next_interest_date
-      FROM fixeddeposit fd
-      JOIN fdplan fp ON fd.fd_plan_id = fp.fd_plan_id
-      JOIN account a ON fd.fd_id = a.fd_id
-      JOIN takes t ON a.account_id = t.account_id
-      JOIN customer c ON t.customer_id = c.customer_id
-      LEFT JOIN last_credited l ON l.fd_id = fd.fd_id
-      WHERE fd.fd_status = 'Active'
-      GROUP BY fd.fd_id, a.account_id, fd.fd_balance, fp.interest, fd.open_date, fd.maturity_date, fd.auto_renewal_status, l.last_date
-      ORDER BY fd.open_date DESC
+      SELECT *
+      FROM v_active_fd_overview
+      ORDER BY open_date DESC
     `);
 
     res.json({
@@ -547,42 +503,14 @@ exports.getInterestSummaryReport = async (req, res) => {
 
   const client = await pool.connect();
   try {
-    // FD Interest Summary
-    const fdInterest = await client.query(`
-      SELECT 
-        'Fixed Deposit' as plan_type,
-        fp.fd_options as account_type,
-        COALESCE(SUM(fic.interest_amount), 0) as total_interest,
-        COUNT(DISTINCT fic.fd_id) as account_count,
-        COALESCE(ROUND(AVG(fic.interest_amount), 2), 0) as average_interest
-      FROM fd_interest_calculations fic
-      JOIN fixeddeposit fd ON fic.fd_id = fd.fd_id
-      JOIN fdplan fp ON fd.fd_plan_id = fp.fd_plan_id
-      WHERE fic.status = 'credited'
-        AND EXTRACT(MONTH FROM fic.credited_at) = $1
-        AND EXTRACT(YEAR FROM fic.credited_at) = $2
-      GROUP BY fp.fd_options
+    const summary = await client.query(`
+      SELECT plan_type, account_type, total_interest, account_count, average_interest
+      FROM v_monthly_interest_summary
+      WHERE month = $1 AND year = $2
     `, [month, year]);
-
-    // Savings Interest Summary
-    const savingsInterest = await client.query(`
-      SELECT 
-        'Savings' as plan_type,
-        sic.plan_type as account_type,
-        COALESCE(SUM(sic.interest_amount), 0) as total_interest,
-        COUNT(DISTINCT sic.account_id) as account_count,
-        COALESCE(ROUND(AVG(sic.interest_amount), 2), 0) as average_interest
-      FROM savings_interest_calculations sic
-      WHERE sic.status = 'credited'
-        AND EXTRACT(MONTH FROM sic.credited_at) = $1
-        AND EXTRACT(YEAR FROM sic.credited_at) = $2
-      GROUP BY sic.plan_type
-    `, [month, year]);
-
-    const combinedResults = [...fdInterest.rows, ...savingsInterest.rows];
     res.json({
       status: 'success',
-      data: combinedResults
+      data: summary.rows
     });
   } catch (error) {
     console.error('Database error:', error);
@@ -613,20 +541,17 @@ exports.getCustomerActivityReport = async (req, res) => {
   try {
     const result = await client.query(`
       SELECT 
-        c.customer_id,
-        c.first_name || ' ' || c.last_name as customer_name,
-        COALESCE(SUM(CASE WHEN t.transaction_type = 'Deposit' THEN t.amount ELSE 0 END), 0) as total_deposits,
-        COALESCE(SUM(CASE WHEN t.transaction_type = 'Withdrawal' THEN t.amount ELSE 0 END), 0) as total_withdrawals,
-        COALESCE(SUM(CASE WHEN t.transaction_type = 'Deposit' THEN t.amount ELSE -t.amount END), 0) as net_balance,
-        COUNT(DISTINCT a.account_id) as account_count,
-        MAX(t.time)::date as last_activity
-      FROM customer c
-      LEFT JOIN takes tk ON c.customer_id = tk.customer_id
-      LEFT JOIN account a ON tk.account_id = a.account_id
-      LEFT JOIN transaction t ON a.account_id = t.account_id
-        AND DATE(t.time) BETWEEN $1 AND $2
-      GROUP BY c.customer_id, c.first_name, c.last_name
-      HAVING COUNT(t.transaction_id) > 0
+        v.customer_id,
+        v.customer_name,
+        COALESCE(SUM(v.deposit_amount), 0) AS total_deposits,
+        COALESCE(SUM(v.withdrawal_amount), 0) AS total_withdrawals,
+        COALESCE(SUM(v.net_value), 0) AS net_balance,
+        COUNT(DISTINCT v.account_id) AS account_count,
+        MAX(v.transaction_date) AS last_activity
+      FROM v_customer_transaction_enriched v
+      WHERE v.transaction_date BETWEEN $1 AND $2
+      GROUP BY v.customer_id, v.customer_name
+      HAVING COUNT(v.transaction_id) > 0
       ORDER BY net_balance DESC
     `, [startDate, endDate]);
 

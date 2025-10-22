@@ -53,11 +53,7 @@ router.post('/branches', adminController.createBranch);
  */
 router.delete('/branches/:id', adminController.deleteBranch);
 
-/**
- * POST /api/admin/refresh-views
- * Refresh materialized views
- */
-router.post('/refresh-views', adminController.refreshViews);
+// Removed: POST /api/admin/refresh-views (materialized views removed)
 
 /**
  * GET /api/admin/reports/*
