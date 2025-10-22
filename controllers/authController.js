@@ -37,6 +37,14 @@ exports.login = async (req, res) => {
 
     const user = result.rows[0];
     
+    // Block login for inactive employees
+    if (user.employee_status && user.employee_status !== 'Active') {
+      return res.status(403).json({
+        status: 'error',
+        message: 'Account is inactive. Please contact an administrator.'
+      });
+    }
+    
     // Compare password with bcrypt
     const isMatch = await bcrypt.compare(password, user.password);
     

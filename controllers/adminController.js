@@ -124,7 +124,7 @@ exports.getUsers = async (req, res) => {
   const client = await pool.connect();
   try {
     const result = await client.query(
-      'SELECT employee_id, username, first_name, last_name, role, nic, gender, date_of_birth, branch_id, contact_id, created_at FROM employee ORDER BY created_at DESC'
+      'SELECT employee_id, username, first_name, last_name, role, nic, gender, date_of_birth, branch_id, contact_id, employee_status, created_at FROM employee ORDER BY created_at DESC'
     );
     
     res.json({
@@ -143,7 +143,7 @@ exports.getUsers = async (req, res) => {
 };
 
 /**
- * Delete a user/employee
+ * Deactivate a user/employee (soft-delete)
  * DELETE /api/admin/users/:id
  */
 exports.deleteUser = async (req, res) => {
@@ -153,23 +153,82 @@ exports.deleteUser = async (req, res) => {
   try {
     const result = await client.query('DELETE FROM employee WHERE employee_id = $1', [id]);
     
-    if (result.rowCount === 0) {
-      return res.status(404).json({
+    // Prevent self-deactivation via DELETE
+    if (req.user && parseInt(id, 10) === parseInt(req.user.id, 10)) {
+      return res.status(400).json({
         status: 'error',
-        message: 'User not found'
-      });
+        message: 'You cannot deactivate your own account.'
+        });
+    }
+
+    // Ensure user exists
+    const userRes = await client.query('SELECT employee_status FROM employee WHERE employee_id = $1', [id]);
+    if (userRes.rowCount === 0) {
+      return res.status(404).json({ status: 'error', message: 'User not found' });
+    }
+
+    // Soft delete: set status to Inactive
+    const updateRes = await client.query(
+      'UPDATE employee SET employee_status = $1 WHERE employee_id = $2 AND employee_status <> $1',
+      ['Inactive', id]
+    );
+
+    if (updateRes.rowCount === 0) {
+      return res.json({ status: 'success', message: 'User is already inactive' });
     }
     
     res.json({
       status: 'success',
-      message: 'User deleted successfully'
+      message: 'User deactivated successfully'
     });
   } catch (error) {
     console.error('Database error:', error);
-    res.status(500).json({
-      status: 'error',
-      message: 'Database error'
-    });
+    res.status(500).json({ status: 'error', message: 'Database error' });
+  } finally {
+    client.release();
+  }
+};
+
+/**
+ * Update user status (Activate/Deactivate)
+ * PATCH /api/admin/users/:id/status
+ * Body: { status: 'Active' | 'Inactive' }
+ */
+exports.updateUserStatus = async (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body || {};
+  const client = await pool.connect();
+
+  try {
+    if (!status || !['Active', 'Inactive'].includes(status)) {
+      return res.status(400).json({ status: 'error', message: 'Invalid status. Use Active or Inactive.' });
+    }
+
+    // Prevent self-deactivation
+    if (status === 'Inactive' && req.user && parseInt(id, 10) === parseInt(req.user.id, 10)) {
+      return res.status(400).json({ status: 'error', message: 'You cannot deactivate your own account.' });
+    }
+
+    // Ensure user exists
+    const userRes = await client.query('SELECT employee_id, employee_status FROM employee WHERE employee_id = $1', [id]);
+    if (userRes.rowCount === 0) {
+      return res.status(404).json({ status: 'error', message: 'User not found' });
+    }
+
+    // Update status
+    const updateRes = await client.query(
+      'UPDATE employee SET employee_status = $1 WHERE employee_id = $2',
+      [status, id]
+    );
+
+    if (updateRes.rowCount === 0) {
+      return res.status(500).json({ status: 'error', message: 'Failed to update status' });
+    }
+
+    res.json({ status: 'success', message: `User ${status === 'Active' ? 'activated' : 'deactivated'} successfully` });
+  } catch (error) {
+    console.error('Database error:', error);
+    res.status(500).json({ status: 'error', message: 'Database error' });
   } finally {
     client.release();
   }

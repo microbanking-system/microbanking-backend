@@ -30,6 +30,12 @@ router.get('/users', adminController.getUsers);
 router.delete('/users/:id', adminController.deleteUser);
 
 /**
+ * PATCH /api/admin/users/:id/status
+ * Activate/Deactivate a user (soft delete/restore)
+ */
+router.patch('/users/:id/status', adminController.updateUserStatus);
+
+/**
  * GET /api/admin/branches
  * Get all branches
  */
